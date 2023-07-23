@@ -30,8 +30,11 @@ if __name__ == "__main__":
         args=[],
     )
 
+    # note: using inline abi
     w1 = provider.write_contract(
-        abi=abi,
+        abi=[
+            "function setNumber(uint256) returns ()",
+        ],
         caller=bob,
         address=contract_address,
         function="setNumber",

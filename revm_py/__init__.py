@@ -1,7 +1,7 @@
 from .revm_py import EVM, ContractParser
 
 """
-First use of the evm module
+Provider and utilities for interacting with the EVM
 """
 import secrets
 
@@ -42,7 +42,10 @@ class Provider:
         if not "function" in kvargs:
             raise Exception("missing function name")
 
-    def create_accounts_with_balance(self, num=1, bal_in_eth=1):
+    def create_accounts_with_balance(self, num=1, bal_in_eth=0):
+        """
+        Create an account with given balance in eth. Default bal == 0
+        """
         bal = to_wei(bal_in_eth, "ether")
         output = []
         for _ in range(0, num):
@@ -55,26 +58,39 @@ class Provider:
         return self.evm.get_balance(address)
 
     def transfer(self, sender, receiver, amt):
+        """
+        Transfer eth between accounts
+        """
         self.evm.transfer(sender, receiver, amt)
 
     def deploy(self, address, bytecode, args=None, value=None):
         ## @todo handle constructor args and value
         return self.evm.deploy(address, bytecode)
 
+    def __get_function_signature(self, func, ins):
+        """
+        Format function signature based on inputs
+        """
+        if len(ins) == 1:
+            return f"{func}({ins[0]})"
+        return f"{func}{tuple(ins)}"
+
     def write_contract(self, **kvargs):
+        self.__validate(kvargs)
         caller = kvargs["caller"]
         contract_address = kvargs["address"]
         abi = kvargs["abi"]
         func = kvargs["function"]
         args = kvargs.get("args", [])
-        contract = ContractParser.load(abi)
+
+        if isinstance(abi, (list, tuple)):
+            contract = ContractParser.parse_abi(abi)
+        else:
+            contract = ContractParser.load(abi)
 
         ins, outs = contract.function_params(func)
-        if len(ins) == 1:
-            full_function = f"{func}({ins[0]})"
-        else:
-            full_function = f"{func}{tuple(ins)}"
 
+        full_function = self.__get_function_signature(func, ins)
         encoded_call = function_signature_to_4byte_selector(full_function) + encode(
             ins, args
         )
@@ -89,11 +105,15 @@ class Provider:
         abi = kvargs["abi"]
         func = kvargs["function"]
         args = kvargs.get("args", [])
-        contract = ContractParser.load(abi)
+
+        if isinstance(abi, (list, tuple)):
+            contract = ContractParser.parse_abi(abi)
+        else:
+            contract = ContractParser.load(abi)
 
         ins, outs = contract.function_params(func)
-        full_function = f"{func}{tuple(args)}"
 
+        full_function = self.__get_function_signature(func, ins)
         encoded_call = function_signature_to_4byte_selector(full_function) + encode(
             ins, args
         )
