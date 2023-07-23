@@ -11,6 +11,7 @@ mod evm;
 
 use contract::ContractParser;
 
+// adapted from https://github.com/gakonst/pyrevm/tree/master
 pub fn pyerr<T: Debug>(err: T) -> pyo3::PyErr {
     PyRuntimeError::new_err(format!("{:?}", err))
 }
@@ -18,6 +19,19 @@ pub fn pyerr<T: Debug>(err: T) -> pyo3::PyErr {
 pub fn addr(addr: &str) -> Result<B160, PyErr> {
     addr.parse::<B160>()
         .map_err(|_| PyTypeError::new_err("failed to parse address from str"))
+}
+
+fn address_helper(caller: &str, receiver: Option<&str>) -> (B160, Option<B160>) {
+    let caller = addr(caller)
+        .map_err(pyerr)
+        .expect("valid address for caller");
+    if receiver.is_some() {
+        let rec = addr(receiver.unwrap())
+            .map_err(pyerr)
+            .expect("valid address for receiver");
+        return (caller, Some(rec));
+    }
+    return (caller, None);
 }
 
 #[pyclass]
@@ -37,33 +51,33 @@ impl EVM {
         bincode: Vec<u8>,
         value: Option<U256>,
     ) -> PyResult<(String, U256)> {
-        let deployer = addr(caller).map_err(pyerr).expect("valid address");
+        let (deployer, _) = address_helper(caller, None);
         let (addy, gas) = _self.0.deploy(deployer, bincode, value)?;
         let address = format!("{:?}", addy);
         Ok((address, U256::from(gas)))
     }
 
     fn create_account(mut _self: PyRefMut<'_, Self>, address: &str, balance: U256) -> PyResult<()> {
-        let addy = addr(address).map_err(pyerr).expect("valid address");
-        _self.0.create_account(addy, Some(balance.into()))?;
+        let (caller, _) = address_helper(address, None);
+        _self.0.create_account(caller, Some(balance.into()))?;
         Ok(())
     }
 
     fn get_balance(mut _self: PyRefMut<'_, Self>, address: &str) -> U256 {
-        let addy = addr(address).map_err(pyerr).expect("valid address");
-        let r = _self.0.get_balance(addy);
+        let (caller, _) = address_helper(address, None);
+        let r = _self.0.get_balance(caller);
         r
     }
 
+    /// Convienence helper for just sending eth
     fn transfer(
         mut _self: PyRefMut<'_, Self>,
         caller: &str,
         to: &str,
         amount: U256,
     ) -> PyResult<u64> {
-        let ca = addr(caller).map_err(pyerr).expect("valid address");
-        let ta = addr(to).map_err(pyerr).unwrap();
-        let (_, g, _) = _self.0.send(ca, ta, Some(amount), None)?;
+        let (ca, ta) = address_helper(caller, Some(to));
+        let (_, g, _) = _self.0.send(ca, ta.unwrap(), Some(amount), None)?;
         Ok(g)
     }
 
@@ -74,9 +88,8 @@ impl EVM {
         data: Vec<u8>,
         value: Option<U256>,
     ) -> PyResult<(Vec<u8>, u64)> {
-        let ca = addr(caller).map_err(pyerr).expect("valid address");
-        let ta = addr(to).map_err(pyerr).unwrap();
-        let (b, g, _) = _self.0.send(ca, ta, value, Some(data))?;
+        let (ca, ta) = address_helper(caller, Some(to));
+        let (b, g, _) = _self.0.send(ca, ta.unwrap(), value, Some(data))?;
         Ok((b, g))
     }
 
@@ -86,9 +99,8 @@ impl EVM {
         to: &str,
         data: Vec<u8>,
     ) -> PyResult<(Vec<u8>, u64)> {
-        let ca = addr(caller).map_err(pyerr).expect("valid address");
-        let ta = addr(to).map_err(pyerr).unwrap();
-        let (b, g, _) = _self.0.call(ca, ta, data).map_err(pyerr)?;
+        let (ca, ta) = address_helper(caller, Some(to));
+        let (b, g, _) = _self.0.call(ca, ta.unwrap(), data).map_err(pyerr)?;
         Ok((b, g))
     }
 }
