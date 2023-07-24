@@ -11,5 +11,8 @@ build:
 build-prod:
 	poetry run maturin build
 
-test: build
-	poetry run pytest -s pytest/*
+#test: build
+#	poetry run pytest -s pytest/*
+
+test:
+	poetry run pytest -s tests/*

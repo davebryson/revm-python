@@ -1,6 +1,7 @@
-from revm_py import ContractParser
 import json
 import pytest
+
+from revm_py import AbiParser, load_contract_meta_from_file
 
 ABI = [
     {
@@ -28,7 +29,7 @@ ABI = [
 
 
 def test_human_readable_parser():
-    abi = ContractParser.parse_abi(
+    abi = AbiParser.parse_abi(
         [
             "function hello(address, uint256) external returns (uint256)",
             "function another() returns (bool)",
@@ -46,7 +47,7 @@ def test_human_readable_parser():
 
     with pytest.raises(BaseException):
         # Bad input
-        ContractParser.parse_abi(
+        AbiParser.parse_abi(
             [
                 "function another returns (bool)",
             ]
@@ -55,7 +56,7 @@ def test_human_readable_parser():
 
 def test_json_file():
     raw = json.dumps(ABI)
-    abi = ContractParser.load(raw)
+    abi = AbiParser.load(raw)
     ins, outs = abi.function_params("number")
     assert len(ins) == 0
     assert len(outs) == 1
@@ -70,4 +71,13 @@ def test_json_file():
         abi.function_params("nope")
 
     with pytest.raises(BaseException):
-        ContractParser.load("abcd")
+        AbiParser.load("abcd")
+
+
+def test_constructor():
+    abistr, bytecode = load_contract_meta_from_file(
+        "./example/contracts/MockERC20.json"
+    )
+    abi = AbiParser.load(abistr)
+    ins = abi.constructor_params()
+    assert ["string", "string", "uint8"] == ins

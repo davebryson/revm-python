@@ -18,7 +18,7 @@ if __name__ == "__main__":
     alice = actors[1]
 
     print(" deploying contract...")
-    contract_address, deploy_cost = provider.deploy(bob, bytecode)
+    contract_address, deploy_cost = provider.deploy(bob, abi, bytecode)
     print(f"deployed address: {contract_address}")
 
     print(" ~~ interacting with the contract ~~~")

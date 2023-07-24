@@ -41,7 +41,7 @@ impl Executor {
         Ok(())
     }
 
-    // @todo handle constructor args
+    // @todo handle value
     pub fn deploy(
         &mut self,
         deployer: Address,
@@ -124,8 +124,10 @@ fn process_execution_result(result: ExecutionResult) -> anyhow::Result<(Output, 
             logs,
             ..
         } => Ok((output, gas_used, logs)),
-        ExecutionResult::Revert { output, .. } => bail!("Failed due to revert: {:?}", output),
-        ExecutionResult::Halt { reason, .. } => bail!("Failed due to halt: {:?}", reason),
+        ExecutionResult::Revert { output, .. } => {
+            bail!("Called failed due to revert: {:?}", output)
+        }
+        ExecutionResult::Halt { reason, .. } => bail!("Called due to halt: {:?}", reason),
     }
 }
 

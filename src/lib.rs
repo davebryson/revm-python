@@ -34,6 +34,52 @@ fn address_helper(caller: &str, receiver: Option<&str>) -> (B160, Option<B160>) 
     return (caller, None);
 }
 
+/// Container for Logs on the Python side
+/// @todo handle parsing correctly
+#[pyclass]
+#[derive(Debug, Clone)]
+pub struct LogInfo(revm::primitives::Log);
+
+#[pymethods]
+impl LogInfo {
+    #[getter]
+    fn address(_self: PyRef<'_, Self>) -> String {
+        let bits: &[u8] = _self.0.address.as_bytes();
+        format!("0x{}", hex::encode(bits))
+    }
+
+    #[getter]
+    fn topics(_self: PyRef<'_, Self>) -> Vec<Vec<u8>> {
+        _self
+            .0
+            .topics
+            .iter()
+            .map(|i| i.to_vec())
+            .collect::<Vec<Vec<u8>>>()
+    }
+
+    #[getter]
+    fn data(_self: PyRef<'_, Self>) -> Vec<u8> {
+        _self.0.data.to_vec()
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{:?}", self))
+    }
+}
+
+impl From<revm::primitives::Log> for LogInfo {
+    fn from(log: revm::primitives::Log) -> Self {
+        LogInfo(log)
+    }
+}
+
+fn convert_logs(ins: Vec<revm::primitives::Log>) -> Vec<LogInfo> {
+    ins.iter()
+        .map(|entry| entry.clone().into())
+        .collect::<Vec<LogInfo>>()
+}
+
 #[pyclass]
 pub struct EVM(evm::Executor);
 
@@ -70,6 +116,7 @@ impl EVM {
     }
 
     /// Convienence helper for just sending eth
+    /// @todo REMOVE this
     fn transfer(
         mut _self: PyRefMut<'_, Self>,
         caller: &str,
@@ -87,10 +134,11 @@ impl EVM {
         to: &str,
         data: Vec<u8>,
         value: Option<U256>,
-    ) -> PyResult<(Vec<u8>, u64)> {
+    ) -> PyResult<(Vec<u8>, u64, Vec<LogInfo>)> {
         let (ca, ta) = address_helper(caller, Some(to));
-        let (b, g, _) = _self.0.send(ca, ta.unwrap(), value, Some(data))?;
-        Ok((b, g))
+        let (b, g, rlogs) = _self.0.send(ca, ta.unwrap(), value, Some(data))?;
+        let plogs = convert_logs(rlogs);
+        Ok((b, g, plogs))
     }
 
     fn call(
@@ -98,10 +146,11 @@ impl EVM {
         caller: &str,
         to: &str,
         data: Vec<u8>,
-    ) -> PyResult<(Vec<u8>, u64)> {
+    ) -> PyResult<(Vec<u8>, u64, Vec<LogInfo>)> {
         let (ca, ta) = address_helper(caller, Some(to));
-        let (b, g, _) = _self.0.call(ca, ta.unwrap(), data).map_err(pyerr)?;
-        Ok((b, g))
+        let (b, g, rlogs) = _self.0.call(ca, ta.unwrap(), data).map_err(pyerr)?;
+        let plogs = convert_logs(rlogs);
+        Ok((b, g, plogs))
     }
 }
 
@@ -110,6 +159,7 @@ impl EVM {
 fn revm_py(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<EVM>()?;
     m.add_class::<ContractParser>()?;
+    m.add_class::<LogInfo>()?;
 
     Ok(())
 }
