@@ -7,7 +7,7 @@ if __name__ == "__main__":
     """
     print(info)
 
-    abi, bytecode = load_contract_meta_from_file("./example/contracts/Counter.json")
+    abi, bytecode = load_contract_meta_from_file("./example/contracts/counter.json")
 
     provider = Provider()
     actors = provider.create_accounts_with_balance(2, 2)
