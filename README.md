@@ -5,9 +5,9 @@ Script EVM and contract code in Python. See an [example](example/basics.py)
 
 *This is part of a ABM EVM modeling environment*
 
-***work in progress...**
+**mucho work in progress...**
 
 ## Get Started
-- You need rust and poetry
+- You need Rust, Python, and Poetry
 - Run `make build`
 - See `example/basics
