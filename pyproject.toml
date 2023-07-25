@@ -25,6 +25,7 @@ eth-hash = {extras = ["pycryptodome"], version = "^0.5.2"}
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"
 pytest = "^7.4.0"
+mesa = "^2.1"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
