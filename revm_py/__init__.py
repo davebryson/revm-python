@@ -180,10 +180,14 @@ class Contract:
     @classmethod
     def deploy(cls, provider, caller, abi, bytecode, args=[], value=0):
         c = cls(provider, abi)
+
+        if not c.constructor_params and len(args) > 0:
+            raise Exception("constructor doesn't take any args")
         if c.constructor_params:
             if len(c.constructor_params) != len(args):
                 raise Exception("wrong number of args for the constructor")
             bytecode += encode(c.constructor_params, args)
+
         addr, _ = provider.evm.deploy(caller, bytecode, value)
         c.address = addr
         return c

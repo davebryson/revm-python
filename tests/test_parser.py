@@ -28,6 +28,17 @@ ABI = [
 ]
 
 
+def test_fails_parse_on_bad_input():
+    with pytest.raises(BaseException):
+        ContractInfo.load("")
+
+    info = ContractInfo.parse_abi([])
+    assert len(info.functions) == 0
+
+    with pytest.raises(BaseException):
+        ContractInfo.parse_abi("")
+
+
 def test_abi_parse_from_str():
     raw = json.dumps(ABI)
     info = ContractInfo.load(raw)

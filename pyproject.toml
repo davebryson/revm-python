@@ -9,9 +9,9 @@ classifiers = [
 
 [tool.poetry]
 name = "revm-py"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
-authors = ["TODO"]
+authors = ["Dave Bryson"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -25,7 +25,6 @@ eth-hash = {extras = ["pycryptodome"], version = "^0.5.2"}
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"
 pytest = "^7.4.0"
-mesa = "^2.1"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
