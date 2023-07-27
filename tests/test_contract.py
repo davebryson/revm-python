@@ -5,7 +5,7 @@ from revm_py import load_contract_meta_from_file, Revm, Contract
 
 
 def test_contract_from_abi():
-    abi, bytecode = load_contract_meta_from_file("./example/contracts/Counter.json")
+    abi, bytecode = load_contract_meta_from_file("./tests/fixtures/counter.json")
 
     provider = Revm()
     actors = provider.create_accounts_with_balance(2, 2)

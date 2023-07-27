@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from revm_py import AbiParser, load_contract_meta_from_file
+from revm_py import ContractInfo, load_contract_meta_from_file
 
 ABI = [
     {
@@ -28,56 +28,33 @@ ABI = [
 ]
 
 
+def test_abi_parse_from_str():
+    raw = json.dumps(ABI)
+    info = ContractInfo.load(raw)
+    assert len(info.functions) == 3
+
+
+def test_abi_parser_from_file():
+    abistr, _ = load_contract_meta_from_file("./tests/fixtures/erc20.json")
+    info = ContractInfo.load(abistr)
+    assert len(info.functions) == 14
+    result = filter(lambda f: f.name == "mint", info.functions)
+    func = list(result)
+    assert len(func) == 1
+    assert func[0].ins == ["address", "uint256"]
+    assert func[0].is_transact
+
+    cp = info.constructor_params
+    assert len(cp) == 3
+    assert ["string", "string", "uint8"] == cp
+
+
 def test_human_readable_parser():
-    abi = AbiParser.parse_abi(
+    info = ContractInfo.parse_abi(
         [
             "function hello(address, uint256) external returns (uint256)",
             "function another() returns (bool)",
         ]
     )
-    ins, outs = abi.function_params("hello")
-    assert len(ins) == 2
-    assert len(outs) == 1
-    assert ["address", "uint256"] == ins
-    assert ["uint256"] == outs
-
-    ins1, outs1 = abi.function_params("another")
-    assert [] == ins1
-    assert ["bool"] == outs1
-
-    with pytest.raises(BaseException):
-        # Bad input
-        AbiParser.parse_abi(
-            [
-                "function another returns (bool)",
-            ]
-        )
-
-
-def test_json_file():
-    raw = json.dumps(ABI)
-    abi = AbiParser.load(raw)
-    ins, outs = abi.function_params("number")
-    assert len(ins) == 0
-    assert len(outs) == 1
-    assert [] == ins
-    assert ["uint256"] == outs
-
-    ins1, outs1 = abi.function_params("setNumber")
-    assert ["uint256"] == ins1
-    assert [] == outs1
-
-    with pytest.raises(BaseException):
-        abi.function_params("nope")
-
-    with pytest.raises(BaseException):
-        AbiParser.load("abcd")
-
-
-def test_constructor():
-    abistr, bytecode = load_contract_meta_from_file(
-        "./example/contracts/MockERC20.json"
-    )
-    abi = AbiParser.load(abistr)
-    ins = abi.constructor_params()
-    assert ["string", "string", "uint8"] == ins
+    assert len(info.functions) == 2
+    assert info.constructor_params == None

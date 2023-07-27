@@ -7,17 +7,14 @@ use ruint::aliases::U256;
 use std::fmt::Debug;
 
 mod abis;
-mod contract;
 mod evm;
 
-use contract::{ContractParser, FuncOutput};
-
 // adapted from https://github.com/gakonst/pyrevm/tree/master
-pub fn pyerr<T: Debug>(err: T) -> pyo3::PyErr {
+pub(crate) fn pyerr<T: Debug>(err: T) -> pyo3::PyErr {
     PyRuntimeError::new_err(format!("{:?}", err))
 }
 
-pub fn addr(addr: &str) -> Result<B160, PyErr> {
+pub(crate) fn addr(addr: &str) -> Result<B160, PyErr> {
     addr.parse::<B160>()
         .map_err(|_| PyTypeError::new_err("failed to parse address from str"))
 }
@@ -33,52 +30,6 @@ fn address_helper(caller: &str, receiver: Option<&str>) -> (B160, Option<B160>) 
         return (caller, Some(rec));
     }
     return (caller, None);
-}
-
-/// Container for Logs on the Python side
-/// @todo handle parsing correctly
-#[pyclass]
-#[derive(Debug, Clone)]
-pub struct LogInfo(revm::primitives::Log);
-
-#[pymethods]
-impl LogInfo {
-    #[getter]
-    fn address(_self: PyRef<'_, Self>) -> String {
-        let bits: &[u8] = _self.0.address.as_bytes();
-        format!("0x{}", hex::encode(bits))
-    }
-
-    #[getter]
-    fn topics(_self: PyRef<'_, Self>) -> Vec<Vec<u8>> {
-        _self
-            .0
-            .topics
-            .iter()
-            .map(|i| i.to_vec())
-            .collect::<Vec<Vec<u8>>>()
-    }
-
-    #[getter]
-    fn data(_self: PyRef<'_, Self>) -> Vec<u8> {
-        _self.0.data.to_vec()
-    }
-
-    fn __str__(&self) -> PyResult<String> {
-        Ok(format!("{:?}", self))
-    }
-}
-
-impl From<revm::primitives::Log> for LogInfo {
-    fn from(log: revm::primitives::Log) -> Self {
-        LogInfo(log)
-    }
-}
-
-fn convert_logs(ins: Vec<revm::primitives::Log>) -> Vec<LogInfo> {
-    ins.iter()
-        .map(|entry| entry.clone().into())
-        .collect::<Vec<LogInfo>>()
 }
 
 #[pyclass]
@@ -146,7 +97,7 @@ impl EVM {
         to: &str,
         data: Vec<u8>,
         value: Option<U256>,
-    ) -> PyResult<(Vec<u8>, u64, Vec<LogInfo>)> {
+    ) -> PyResult<(Vec<u8>, u64)> {
         let (ca, ta) = address_helper(caller, Some(to));
         let mut write_tx = TxEnv::default();
         write_tx.caller = ca;
@@ -156,29 +107,22 @@ impl EVM {
             write_tx.value = value.unwrap();
         }
 
-        let (b, g, rlogs) = _self.0.transact(write_tx)?;
+        // note: ignoring logs for now...add later
+        let (b, g, _) = _self.0.transact(write_tx)?;
 
-        //let (b, g, rlogs) = _self.0.send(ca, ta.unwrap(), value, Some(data))?;
-        let plogs = convert_logs(rlogs);
-        Ok((b, g, plogs))
+        Ok((b, g))
     }
 
-    fn call(
-        mut _self: PyRefMut<'_, Self>,
-        caller: &str,
-        to: &str,
-        data: Vec<u8>,
-    ) -> PyResult<(Vec<u8>, u64, Vec<LogInfo>)> {
-        let (ca, ta) = address_helper(caller, Some(to));
+    ///
+    fn call(mut _self: PyRefMut<'_, Self>, to: &str, data: Vec<u8>) -> PyResult<(Vec<u8>, u64)> {
+        let (ta, _) = address_helper(to, None);
         let mut read_tx = TxEnv::default();
-        read_tx.caller = ca;
-        read_tx.transact_to = TransactTo::Call(ta.unwrap());
+        read_tx.transact_to = TransactTo::Call(ta);
         read_tx.data = data.into();
 
-        let (b, g, rlogs) = _self.0.call(read_tx).map_err(pyerr)?;
+        let (b, g, _) = _self.0.call(read_tx).map_err(pyerr)?;
 
-        let plogs = convert_logs(rlogs);
-        Ok((b, g, plogs))
+        Ok((b, g))
     }
 }
 
@@ -186,14 +130,7 @@ impl EVM {
 #[pymodule]
 fn revm_py(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<EVM>()?;
-    m.add_class::<ContractParser>()?;
-    m.add_class::<LogInfo>()?;
-    m.add_class::<FuncOutput>()?;
-
-    //m.add_class::<abis::ContractFunction>()?;
     m.add_class::<abis::ContractInfo>()?;
-
-    //m.add_function(wrap_pyfunction!(convert_types, m)?)?;
 
     Ok(())
 }

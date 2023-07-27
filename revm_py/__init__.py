@@ -1,13 +1,15 @@
-from .revm_py import EVM, AbiParser
-from .contract import Contract, Revm
-
-"""
-Provider and utilities for interacting with the EVM
-"""
 import secrets
-
 from eth_abi import encode, decode
-from eth_utils import function_signature_to_4byte_selector, decode_hex, to_wei
+from eth_utils import to_wei, decode_hex
+
+from .revm_py import ContractInfo, EVM
+
+
+def generate_random_address():
+    """
+    Generate a random account address
+    """
+    return "0x" + secrets.token_hex(20)
 
 
 def load_contract_meta_from_file(path):
@@ -26,51 +28,13 @@ def load_contract_meta_from_file(path):
     return (json.dumps(abi), bytcode)
 
 
-def generate_random_address():
-    return "0x" + secrets.token_hex(20)
-
-
-def format_args(name, params):
+class Revm:
     """
-    Format a function name and input args needed for 4-byte selector. Ex:
-    Given
-        function name  : add
-        function params: ["uint256", "address"]
-
-    Returns "add(uint256,uint256)"
+    Python thin wrapper around the EVM
     """
-    result = ""
-    for i in params:
-        result += f"{i},"
-    # remove trailing ","
-    t = result.strip(",")
-    return f"{name}({t})"
 
-
-class Provider:
     def __init__(self):
         self.evm = EVM()
-
-    def __validate(self, kvargs):
-        # Minimal validation on input to read/write
-        # @todo Maybe map to a namedtuple for use inside calls below
-        if not "address" in kvargs:
-            raise Exception("missing address")
-        if not "caller" in kvargs:
-            raise Exception("missing caller (from) address")
-        if not "abi" in kvargs:
-            raise Exception("missing abi")
-        if not "function" in kvargs:
-            raise Exception("missing function name")
-
-    def __get_contract_from_abi(self, abi):
-        """
-        Parse the incoming abi depending on if it's an inline entry, or
-        the fill json abi as a string
-        """
-        if isinstance(abi, (list, tuple)):
-            return AbiParser.parse_abi(abi)
-        return AbiParser.load(abi)
 
     def create_account(self, initial_bal=0):
         """
@@ -84,16 +48,14 @@ class Provider:
 
     def create_accounts_with_balance(self, num, bal_in_eth=0):
         """
-        Create 'num' of account with given balance in eth.
+        Create 'num' of accounts with given balance in eth.
         Default bal == 0
         Returns List[address]
         """
         output = []
         for _ in range(0, num):
             address = self.create_account(bal_in_eth)
-            # address = generate_random_address()
             output.append(address)
-            # self.evm.create_account(address, bal)
         return output
 
     def balance_of(self, address):
@@ -108,71 +70,120 @@ class Provider:
         """
         self.evm.transfer(sender, receiver, amt)
 
-    def __encode_deploy_bytecode_with_args(self, abi, bytecode, args):
-        contract = self.__get_contract_from_abi(abi)
-        params = contract.constructor_params()
-        if len(params) != len(args):
-            raise Exception("wrong number of constructor params")
-        return bytecode + encode(params, args)
+    def transact(self, caller, contract_address, encoded, value=0):
+        """
+        Make a 'write' call to the evm
+        Returns any result byte encoded
+        """
+        bits, _ = self.evm.transact(caller, contract_address, encoded, value)
+        return bits
 
-    def deploy(self, caller, abi, bytecode, args=[], value=0):
-        if len(args) > 0:
-            bytecode_with_args = self.__encode_deploy_bytecode_with_args(
-                abi, bytecode, args
+    def call(self, contract_address, encoded):
+        """
+        Make a 'read' call to the evm
+        Returns any result byte encoded
+        """
+        bits, _ = self.evm.call(contract_address, encoded)
+        return bits
+
+
+class Function:
+    """
+    Contains all the information needed to encode and decode calls
+    to the EVM
+    """
+
+    def __init__(self, signature, ins, outs, is_transact, is_payable):
+        self.ins = ins
+        self.outs = outs
+        self.is_payable = is_payable
+        self.is_transact = is_transact
+        self.selector = signature
+
+        self.provider = None
+        self.contract_address = None
+
+    def __call__(self, *args, **kwargs):
+        value = kwargs.get("value", 0)
+        caller = kwargs.get("caller", None)
+        if not self.contract_address:
+            raise Exception("missing contract address. see at() method")
+
+        if len(args) != len(self.ins):
+            raise Exception(
+                f"input args do not match contract inputs. requires: {self.ins}"
             )
-            return self.evm.deploy(caller, bytecode_with_args, value)
-        return self.evm.deploy(caller, bytecode, value)
 
-    def __make_encoded_call(self, fn_name, expected_input, args):
+        self.encoded = self.selector + encode(self.ins, args)
+        if self.is_transact:
+            if not caller:
+                raise Exception("missing caller address")
+
+            # it's a write call
+            bits = self.provider.transact(
+                caller, self.contract_address, self.encoded, value
+            )
+        else:
+            # it's a read call
+            bits = self.provider.call(self.contract_address, self.encoded)
+
+        return decode(self.outs, bytes(bits))
+
+
+class Contract:
+    def __init__(self, provider, abi):
         """
-        Encode function signature and args for evm tx
+        Create a contract from the given provider and ABI
         """
-        if len(expected_input) != len(args):
-            raise Exception("input args do not match contract inputs")
+        self.address = None
+        self.provider = provider
+        self.constructor_params = []
+        self.__contract_functions = {}
 
-        fn_definition = format_args(fn_name, expected_input)
+        info = None
+        if isinstance(abi, (list, tuple)):
+            info = ContractInfo.parse_abi(abi)
+        elif isinstance(abi, str):
+            info = ContractInfo.load(abi)
+        else:
+            raise Exception("unrecognized abi format")
 
-        return function_signature_to_4byte_selector(fn_definition) + encode(
-            expected_input, args
-        )
+        self.constructor_params = info.constructor_params
 
-    def write_contract(self, **kvargs):
+        for fo in info.functions:
+            f = Function(
+                bytes(fo.signature),
+                fo.ins,
+                fo.outs,
+                fo.is_transact,
+                fo.is_payable,
+            )
+            self.__contract_functions[fo.name] = f
+
+    def __getattr__(self, n):
         """
-        Make a transaction call that commits
+        Make contract methods available as calls
         """
-        self.__validate(kvargs)
-        caller = kvargs["caller"]
-        contract_address = kvargs["address"]
-        abi = kvargs["abi"]
-        func = kvargs["function"]
-        args = kvargs.get("args", [])
-        value = kvargs.get("value", 0)
+        if n in self.__contract_functions:
+            fn = self.__contract_functions[n]
+            fn.contract_address = self.address
+            fn.provider = self.provider
+            return fn
 
-        contract = self.__get_contract_from_abi(abi)
-        ins, outs = contract.function_params(func)
-        encoded_call = self.__make_encoded_call(func, ins, args)
-
-        bits, gas_used, logs = self.evm.transact(
-            caller, contract_address, encoded_call, value
-        )
-
-        return (decode(outs, bytes(bits)), gas_used, logs)
-
-    def read_contract(self, **kvargs):
+    def at(self, address):
         """
-        Make a read-only call that does not commit
+        Set the contract address, if not already set on deploy
         """
-        self.__validate(kvargs)
-        caller = kvargs["caller"]
-        contract_address = kvargs["address"]
-        abi = kvargs["abi"]
-        func = kvargs["function"]
-        args = kvargs.get("args", [])
+        self.address = address
+        return self
 
-        contract = self.__get_contract_from_abi(abi)
-        ins, outs = contract.function_params(func)
-        encoded_call = self.__make_encoded_call(func, ins, args)
-
-        bits, gas_used, logs = self.evm.call(caller, contract_address, encoded_call)
-
-        return (decode(outs, bytes(bits)), gas_used, logs)
+    @classmethod
+    def deploy(cls, provider, caller, abi, bytecode, args=[], value=0):
+        c = cls(provider, abi)
+        if c.constructor_params:
+            if len(c.constructor_params) != len(args):
+                raise Exception("wrong number of args for the constructor")
+            bytecode += encode(c.constructor_params, args)
+        addr, _ = provider.evm.deploy(caller, bytecode, value)
+        c.address = addr
+        return c

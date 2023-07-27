@@ -1,6 +1,11 @@
 use ethers::abi::{Abi, Function, StateMutability};
 use pyo3::prelude::*;
 
+///
+/// Abi utilities using ethers to parse abi and extract contract
+/// function information used in the python contract class
+///
+
 #[pyclass]
 pub struct ContractInfo {
     #[pyo3(get)]

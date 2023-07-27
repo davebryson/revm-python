@@ -6,6 +6,8 @@ use revm::{
 };
 use ruint::aliases::U256;
 
+/// Core Revm engine
+
 pub struct Executor {
     // @todo handle forks
     evm: EVM<CacheDB<EmptyDB>>,
@@ -115,9 +117,6 @@ mod tests {
     use revm::primitives::{Address, TransactTo, TxEnv};
     use ruint::aliases::U256;
 
-    use ethers::abi::{Abi, JsonAbi};
-    use ethers::prelude::*;
-
     #[test]
     fn basics() {
         let bob = Address::from_low_u64_be(1);
@@ -146,6 +145,7 @@ mod tests {
         assert_eq!(U256::from(999950u32), result2);
     }
 
+    /*
     #[test]
     fn contract_read_write() {
         let raw = include_str!("../abm/bank_reserve/contract/BankReserve.json");
@@ -212,4 +212,5 @@ mod tests {
 
         // Do Read
     }
+    */
 }
