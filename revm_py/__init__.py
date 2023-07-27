@@ -30,7 +30,7 @@ def load_contract_meta_from_file(path):
 
 class Revm:
     """
-    Python thin wrapper around the EVM
+    Thin Python wrapper around a Rust EVM
     """
 
     def __init__(self):
@@ -72,7 +72,7 @@ class Revm:
 
     def transact(self, caller, contract_address, encoded, value=0):
         """
-        Make a 'write' call to the evm
+        Make a 'write' call to a contract
         Returns any result byte encoded
         """
         bits, _ = self.evm.transact(caller, contract_address, encoded, value)
@@ -80,7 +80,7 @@ class Revm:
 
     def call(self, contract_address, encoded):
         """
-        Make a 'read' call to the evm
+        Make a 'read' call to a contract
         Returns any result byte encoded
         """
         bits, _ = self.evm.call(contract_address, encoded)
@@ -96,18 +96,19 @@ class Function:
     def __init__(self, signature, ins, outs, is_transact, is_payable):
         self.ins = ins
         self.outs = outs
+        self.selector = signature
         self.is_payable = is_payable
         self.is_transact = is_transact
-        self.selector = signature
 
         self.provider = None
         self.contract_address = None
 
     def __call__(self, *args, **kwargs):
-        value = kwargs.get("value", 0)
-        caller = kwargs.get("caller", None)
         if not self.contract_address:
             raise Exception("missing contract address. see at() method")
+
+        value = kwargs.get("value", 0)
+        caller = kwargs.get("caller", None)
 
         if len(args) != len(self.ins):
             raise Exception(
@@ -133,7 +134,9 @@ class Function:
 class Contract:
     def __init__(self, provider, abi):
         """
-        Create a contract from the given provider and ABI
+        Create a contract from the given provider and ABI. Maps contract function
+        names to the class and automatically determines if a method call should be
+        a contract transaction or a read-only call based on the ABI.
         """
         self.address = None
         self.provider = provider
@@ -163,6 +166,8 @@ class Contract:
     def __getattr__(self, n):
         """
         Make contract methods available as calls
+        For example, if the ABI has the contract function 'function hello(uint256)',
+        you can invoke it by name: contract.hello(10)
         """
         if n in self.__contract_functions:
             fn = self.__contract_functions[n]
@@ -179,6 +184,10 @@ class Contract:
 
     @classmethod
     def deploy(cls, provider, caller, abi, bytecode, args=[], value=0):
+        """
+        Deploy a contract.
+        Returns the contract address
+        """
         c = cls(provider, abi)
 
         if not c.constructor_params and len(args) > 0:

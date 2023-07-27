@@ -84,7 +84,7 @@ def test_read_write_contract():
     for i in range(1, 100):
         c.setNumber(i, caller=bob)
 
-    (b,) = c.number(caller=bob)
+    (b,) = c.number()
     assert b == 99
 
     with pytest.raises(BaseException):
