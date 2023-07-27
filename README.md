@@ -51,3 +51,9 @@ Deploy and interact with the classic `counter` smart contract
 ```
 See [tests](./tests/) for more examples
 
+## What's next
+- PyPi
+- Event logs
+- Mesa examples
+- Fork chain support
+
