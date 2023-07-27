@@ -1,4 +1,5 @@
 from .revm_py import EVM, AbiParser
+from .contract import Contract, Revm
 
 """
 Provider and utilities for interacting with the EVM
@@ -71,18 +72,28 @@ class Provider:
             return AbiParser.parse_abi(abi)
         return AbiParser.load(abi)
 
+    def create_account(self, initial_bal=0):
+        """
+        Create a single account with an optional balance in ether
+        Return the account address
+        """
+        bal = to_wei(initial_bal, "ether")
+        address = generate_random_address()
+        self.evm.create_account(address, bal)
+        return address
+
     def create_accounts_with_balance(self, num, bal_in_eth=0):
         """
         Create 'num' of account with given balance in eth.
         Default bal == 0
         Returns List[address]
         """
-        bal = to_wei(bal_in_eth, "ether")
         output = []
         for _ in range(0, num):
-            address = generate_random_address()
+            address = self.create_account(bal_in_eth)
+            # address = generate_random_address()
             output.append(address)
-            self.evm.create_account(address, bal)
+            # self.evm.create_account(address, bal)
         return output
 
     def balance_of(self, address):
@@ -109,7 +120,6 @@ class Provider:
             bytecode_with_args = self.__encode_deploy_bytecode_with_args(
                 abi, bytecode, args
             )
-            # print(f"encoded deploy {bytecode_with_args.hex()}")
             return self.evm.deploy(caller, bytecode_with_args, value)
         return self.evm.deploy(caller, bytecode, value)
 
@@ -136,12 +146,15 @@ class Provider:
         abi = kvargs["abi"]
         func = kvargs["function"]
         args = kvargs.get("args", [])
+        value = kvargs.get("value", 0)
 
         contract = self.__get_contract_from_abi(abi)
         ins, outs = contract.function_params(func)
         encoded_call = self.__make_encoded_call(func, ins, args)
 
-        bits, gas_used, logs = self.evm.transact(caller, contract_address, encoded_call)
+        bits, gas_used, logs = self.evm.transact(
+            caller, contract_address, encoded_call, value
+        )
 
         return (decode(outs, bytes(bits)), gas_used, logs)
 

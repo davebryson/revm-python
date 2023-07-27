@@ -178,7 +178,7 @@ def test_calling_contracts():
     )
     assert v == 3
 
-    # bio transfers 1 to alice
+    # bob transfers 1 to alice
     (_, _, logs) = provider.write_contract(
         caller=bob,
         address=contract_address,

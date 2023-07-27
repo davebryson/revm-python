@@ -1,4 +1,4 @@
-use ethers::abi::Abi;
+use ethers::abi::{Abi, Function, StateMutability};
 use pyo3::prelude::*;
 
 /// Utility to parse ABI. Primarily used to extract information needed
@@ -36,6 +36,70 @@ impl ContractParser {
     pub fn function_params(_self: PyRef<'_, Self>, name: &str) -> (Vec<String>, Vec<String>) {
         _self.inner.function_params(name)
     }
+
+    pub fn load_all_functions(_self: PyRef<'_, Self>) -> Vec<FuncOutput> {
+        _self.inner.map_all_functions()
+    }
+}
+
+//pub(crate) type FuncOutput = (String, String, Vec<String>, Vec<String>);
+
+#[pyclass]
+#[derive(Clone, Debug, Default)]
+pub struct FuncOutput {
+    #[pyo3(get)]
+    pub name: String,
+    #[pyo3(get)]
+    pub signature: [u8; 4],
+    #[pyo3(get)]
+    pub ins: Vec<String>,
+    #[pyo3(get)]
+    pub outs: Vec<String>,
+    #[pyo3(get)]
+    pub is_transact: bool,
+    #[pyo3(get)]
+    pub is_payable: bool,
+}
+
+#[pymethods]
+impl FuncOutput {
+    pub fn __str__(_self: PyRef<'_, Self>) -> String {
+        return _self.name.clone();
+    }
+}
+
+pub(crate) fn map_function(f: Function) -> FuncOutput {
+    let mut func_out = FuncOutput::default();
+    func_out.name = f.name.clone();
+    func_out.signature = f.short_signature();
+    match f.state_mutability {
+        StateMutability::Pure | StateMutability::View => {
+            func_out.is_transact = false;
+            func_out.is_payable = false;
+        }
+        StateMutability::Payable => {
+            func_out.is_transact = true;
+            func_out.is_payable = true;
+        }
+        _ => {
+            func_out.is_transact = true;
+            func_out.is_payable = false;
+        }
+    }
+
+    func_out.ins = f
+        .inputs
+        .iter()
+        .map(|entry| entry.kind.to_string())
+        .collect::<Vec<String>>();
+
+    func_out.outs = f
+        .outputs
+        .iter()
+        .map(|entry| entry.kind.to_string())
+        .collect::<Vec<String>>();
+
+    return func_out;
 }
 
 /// We implement this separately so we can test it independently of the Python version above
@@ -59,7 +123,21 @@ impl AbiHelperInner {
         Some(r)
     }
 
+    pub(crate) fn map_all_functions(&self) -> Vec<FuncOutput> {
+        // @todo use this to build better python contract API
+        // map all Functions to an object for Python
+        // use an iteration with a to_python_function()
+        // returns a Vec<(name, sig, Vec<ins>, Vec<outs>)>
+        let all = self
+            .abi
+            .functions()
+            .map(|f| map_function(f.clone()))
+            .collect();
+        all
+    }
+
     /// Parse ABI and return the input and out parameters to encode/decode with python eth_utils
+    /// @note is this func needed anymore??
     pub(crate) fn function_params(&self, name: &str) -> (Vec<String>, Vec<String>) {
         let ins = self
             .abi
@@ -168,5 +246,18 @@ mod tests {
 
         let evts = abi.event_params("Transfer");
         println!("{:?}", evts);
+    }
+
+    #[test]
+    fn list_function() {
+        let raw = include_str!("../example/contracts/mockERC20.json");
+        let abistr: &str = &extract_abi_helper(&raw);
+
+        let abi = AbiHelperInner::from(abistr);
+        let all = abi.map_all_functions();
+        for e in &all {
+            println!("{:?}", e)
+        }
+        assert_eq!(14, all.len());
     }
 }

@@ -66,7 +66,7 @@ class MoneyAgent(mesa.Agent):
         self.address = address
 
     def get_balance(self):
-        # note we get and agent's balance from the EVM
+        # note we get an agent's balance from the EVM
         return self.model.provider.balance_of(self.address)
 
     def move(self):

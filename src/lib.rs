@@ -2,14 +2,15 @@ use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError},
     prelude::*,
 };
-use revm::primitives::B160;
+use revm::primitives::{TransactTo, TxEnv, B160};
 use ruint::aliases::U256;
 use std::fmt::Debug;
 
+mod abis;
 mod contract;
 mod evm;
 
-use contract::ContractParser;
+use contract::{ContractParser, FuncOutput};
 
 // adapted from https://github.com/gakonst/pyrevm/tree/master
 pub fn pyerr<T: Debug>(err: T) -> pyo3::PyErr {
@@ -95,10 +96,17 @@ impl EVM {
         mut _self: PyRefMut<'_, Self>,
         caller: &str,
         bincode: Vec<u8>,
-        value: Option<U256>,
+        value: U256,
     ) -> PyResult<(String, U256)> {
         let (deployer, _) = address_helper(caller, None);
-        let (addy, gas) = _self.0.deploy(deployer, bincode, value)?;
+        let mut tx = TxEnv::default();
+        tx.caller = deployer;
+        tx.transact_to = TransactTo::create();
+        tx.data = bincode.into();
+        tx.value = value;
+
+        let (addy, gas) = _self.0.deploy(tx)?;
+
         let address = format!("{:?}", addy);
         Ok((address, U256::from(gas)))
     }
@@ -116,7 +124,6 @@ impl EVM {
     }
 
     /// Convienence helper for just sending eth
-    /// @todo REMOVE this
     fn transfer(
         mut _self: PyRefMut<'_, Self>,
         caller: &str,
@@ -124,7 +131,12 @@ impl EVM {
         amount: U256,
     ) -> PyResult<u64> {
         let (ca, ta) = address_helper(caller, Some(to));
-        let (_, g, _) = _self.0.send(ca, ta.unwrap(), Some(amount), None)?;
+        let mut tx = TxEnv::default();
+        tx.caller = ca;
+        tx.transact_to = TransactTo::Call(ta.unwrap());
+        tx.value = amount;
+
+        let (_, g, _) = _self.0.transact(tx)?;
         Ok(g)
     }
 
@@ -136,7 +148,17 @@ impl EVM {
         value: Option<U256>,
     ) -> PyResult<(Vec<u8>, u64, Vec<LogInfo>)> {
         let (ca, ta) = address_helper(caller, Some(to));
-        let (b, g, rlogs) = _self.0.send(ca, ta.unwrap(), value, Some(data))?;
+        let mut write_tx = TxEnv::default();
+        write_tx.caller = ca;
+        write_tx.transact_to = TransactTo::Call(ta.unwrap());
+        write_tx.data = data.into();
+        if value.is_some() {
+            write_tx.value = value.unwrap();
+        }
+
+        let (b, g, rlogs) = _self.0.transact(write_tx)?;
+
+        //let (b, g, rlogs) = _self.0.send(ca, ta.unwrap(), value, Some(data))?;
         let plogs = convert_logs(rlogs);
         Ok((b, g, plogs))
     }
@@ -148,7 +170,13 @@ impl EVM {
         data: Vec<u8>,
     ) -> PyResult<(Vec<u8>, u64, Vec<LogInfo>)> {
         let (ca, ta) = address_helper(caller, Some(to));
-        let (b, g, rlogs) = _self.0.call(ca, ta.unwrap(), data).map_err(pyerr)?;
+        let mut read_tx = TxEnv::default();
+        read_tx.caller = ca;
+        read_tx.transact_to = TransactTo::Call(ta.unwrap());
+        read_tx.data = data.into();
+
+        let (b, g, rlogs) = _self.0.call(read_tx).map_err(pyerr)?;
+
         let plogs = convert_logs(rlogs);
         Ok((b, g, plogs))
     }
@@ -160,6 +188,12 @@ fn revm_py(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<EVM>()?;
     m.add_class::<ContractParser>()?;
     m.add_class::<LogInfo>()?;
+    m.add_class::<FuncOutput>()?;
+
+    //m.add_class::<abis::ContractFunction>()?;
+    m.add_class::<abis::ContractInfo>()?;
+
+    //m.add_function(wrap_pyfunction!(convert_types, m)?)?;
 
     Ok(())
 }
