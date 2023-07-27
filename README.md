@@ -3,15 +3,15 @@ A Python api for a blazingly fast Ethereum Virtual Machine (EVM). Also includes 
 
 How is this different than Brownie, Ganache, Anvil?
 - It's only an EVM, no blocks or minings
-- No HTTP or JSON-RPC, you talk directly to the EVM (and it's fast)
+- No HTTP/JSON-RPC. You talk directly to the EVM (and it's fast)
 - Provides low-level access to storage
 - You can still do all the ethereum stuff: accounts, transfers, contract interaction, etc...
 - Fork and interact with main chain historical data 
 
-The primary motivation for this work was to be able to model smart contract interaction in an Agent Based Modeling environment like [Mesa](https://mesa.readthedocs.io/en/main/). More to come on this...
+The primary motivation for this work was to be able to model smart contract interaction in an Agent Based Modeling environment like [Mesa](https://mesa.readthedocs.io/en/main/). To do that, we needed a fast, flexible, EVM with a Python api (of course).   More to come on this...
 
 ## Standing on the shoulders of giants
-Thanks to following projects for making this work easy!
+Thanks to the following projects for making this work easy!
 - [pyO3](https://github.com/PyO3)
 - [revm](https://github.com/bluealloy/revm)
 - [ethers](https://docs.rs/ethers/latest/ethers/index.html)
