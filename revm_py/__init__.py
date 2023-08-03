@@ -1,6 +1,6 @@
 import secrets
 from eth_abi import encode, decode
-from eth_utils import to_wei, decode_hex
+from eth_utils import to_wei
 
 from .revm_py import ContractInfo, EVM
 
@@ -12,25 +12,9 @@ def generate_random_address():
     return "0x" + secrets.token_hex(20)
 
 
-def load_contract_meta_from_file(path):
-    """
-    Load a contract metadata json file.
-
-    Returns a tuple with the abi section (as a string), and the bytecode
-    """
-    import json
-
-    with open(path) as f:
-        meta = json.loads(f.read())
-        abi = meta["abi"]
-        bytcode = decode_hex(meta["bytecode"]["object"])
-
-    return (json.dumps(abi), bytcode)
-
-
 class Revm:
     """
-    Thin Python wrapper around a Rust EVM
+    Thin Python wrapper around a Rust EVM.
     """
 
     def __init__(self):
@@ -83,7 +67,7 @@ class Revm:
         Make a 'read' call to a contract
         Returns any result byte encoded
         """
-        bits, _ = self.evm.call(contract_address, encoded)
+        bits = self.evm.call(contract_address, encoded)
         return bits
 
 
@@ -119,7 +103,6 @@ class Function:
         if self.is_transact:
             if not caller:
                 raise Exception("missing caller address")
-
             # it's a write call
             bits = self.provider.transact(
                 caller, self.contract_address, self.encoded, value
@@ -128,7 +111,11 @@ class Function:
             # it's a read call
             bits = self.provider.call(self.contract_address, self.encoded)
 
-        return decode(self.outs, bytes(bits))
+        decoded = decode(self.outs, bytes(bits))
+        if len(decoded) == 1:
+            return decoded[0]
+        else:
+            return decoded
 
 
 class Contract:
@@ -142,15 +129,15 @@ class Contract:
         self.provider = provider
         self.constructor_params = []
         self.__contract_functions = {}
+        self.bytecode = None
 
         info = None
-        if isinstance(abi, (list, tuple)):
-            info = ContractInfo.parse_abi(abi)
-        elif isinstance(abi, str):
+        if isinstance(abi, str):
             info = ContractInfo.load(abi)
         else:
             raise Exception("unrecognized abi format")
 
+        self.bytecode = info.bytecode
         self.constructor_params = info.constructor_params
 
         for fo in info.functions:
@@ -182,21 +169,14 @@ class Contract:
         self.address = address
         return self
 
-    @classmethod
-    def deploy(cls, provider, caller, abi, bytecode, args=[], value=0):
-        """
-        Deploy a contract.
-        Returns the contract address
-        """
-        c = cls(provider, abi)
-
-        if not c.constructor_params and len(args) > 0:
+    def deploy(self, caller, args=[], value=0):
+        if not self.constructor_params and len(args) > 0:
             raise Exception("constructor doesn't take any args")
-        if c.constructor_params:
-            if len(c.constructor_params) != len(args):
+        if self.constructor_params:
+            if len(self.constructor_params) != len(args):
                 raise Exception("wrong number of args for the constructor")
-            bytecode += encode(c.constructor_params, args)
+            self.bytecode += encode(self.constructor_params, args)
 
-        addr, _ = provider.evm.deploy(caller, bytecode, value)
-        c.address = addr
-        return c
+        addr = self.provider.evm.deploy(caller, self.bytecode, value)
+        self.address = addr
+        return addr

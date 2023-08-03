@@ -2,18 +2,28 @@
 name = "revm-python"
 version = "0.1.0"
 edition = "2021"
+authors = ["Dave Bryson <davebryson@users.noreply.github.com>"]
+readme = "README.md"
+license = "Apache-2.0"
+repository = "https://github.com/davebryson/revmup-python"
+homepage = "https://github.com/davebryson/revmup-python"
+categories = ["cryptography::cryptocurrencies"]
+keywords = ["revm", "python", "ethereum", "web3"]
 
 [lib]
 name = "revm_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.71"
-ethers = "2.0.7"
-hex = "0.4.3"
-# using older version as there seems to be an issue with ruint feature
-pyo3 = {version = "0.17.1", features = ["anyhow", "extension-module"]}
+# abi and evm
+alloy-json-abi = "0.3.1"
 revm = "3.3.0"
+
+# rust -> python
+pyo3 = { version = "0.19.2", features = ["eyre", "extension-module"] }
+
+# extras...
+eyre = "0.6.8"
 serde = "1.0.165"
 serde_json = "1.0.99"
-ruint = { version= "1.4.1", features = ["primitive-types", "pyo3"]}
+ruint = { version = "1.10.1", features = ["primitive-types", "pyo3"] }

@@ -1,92 +1,93 @@
 import pytest
 from eth_utils import is_address, to_wei
 
-from revm_py import load_contract_meta_from_file, Revm, Contract
+from revm_py import Revm, Contract
 
 
 def test_contract_deploy_no_args():
-    abi, bytecode = load_contract_meta_from_file("./tests/fixtures/counter.json")
+    with open("./tests/fixtures/counter.json") as f:
+        counterabi = f.read()
 
     provider = Revm()
     actors = provider.create_accounts_with_balance(1, 2)
     deployer = actors[0]
 
-    c = Contract.deploy(provider, deployer, abi, bytecode)
-    assert is_address(c.address)
+    counter = Contract(provider, counterabi)
+    address = counter.deploy(deployer)
+
+    assert is_address(address)
+    assert address == counter.address
+
+    val = counter.number()
+    assert val == 0
 
     with pytest.raises(BaseException):
         # constructor doesn't accept args
-        Contract.deploy(provider, deployer, abi, bytecode, args=(1, 2))
+        counter.deploy(deployer, args=(1, 2))
 
 
 def test_contract_deploy_with_args():
-    abi, bytecode = load_contract_meta_from_file("./tests/fixtures/erc20.json")
+    with open("./tests/fixtures/erc20.json") as f:
+        ercabi = f.read()
+
     provider = Revm()
     actors = provider.create_accounts_with_balance(1, 2)
     deployer = actors[0]
 
-    c = Contract.deploy(provider, deployer, abi, bytecode, args=("hello", "H", 6))
-    assert is_address(c.address)
+    erc = Contract(provider, ercabi)
+    erc.deploy(deployer, args=("hello", "H", 6))
+
+    assert is_address(erc.address)
 
     with pytest.raises(BaseException):
         # missing args
-        Contract.deploy(provider, deployer, abi, bytecode)
+        erc.deploy(deployer)
 
-    (name,) = c.name()
+    name = erc.name()
     assert name == "hello"
 
-    (sym,) = c.symbol()
+    sym = erc.symbol()
     assert sym == "H"
 
 
 def test_contract_deploy_with_value():
-    abi, bytecode = load_contract_meta_from_file("./tests/fixtures/simplepayable.json")
+    with open("./tests/fixtures/simplepayable.json") as f:
+        simpleabi = f.read()
+
     provider = Revm()
     actors = provider.create_accounts_with_balance(2, 2)
     deployer = actors[0]
     alice = actors[1]
 
     amount = to_wei(1, "ether")
-    c = Contract.deploy(provider, deployer, abi, bytecode, args=[alice], value=amount)
-    assert is_address(c.address)
+    simple = Contract(provider, simpleabi)
 
-    assert provider.balance_of(c.address) == amount
+    simple.deploy(deployer, args=[alice], value=amount)
+    assert is_address(simple.address)
+
+    assert provider.balance_of(simple.address) == amount
     assert provider.balance_of(deployer) == amount
 
 
-def test_contract_with_inline_abi():
-    abi, bytecode = load_contract_meta_from_file("./tests/fixtures/erc20.json")
-    provider = Revm()
-    actors = provider.create_accounts_with_balance(1, 2)
-    deployer = actors[0]
-
-    c = Contract.deploy(provider, deployer, abi, bytecode, args=("hello", "H", 6))
-    assert is_address(c.address)
-
-    # try calling with inline abi
-    cabi = Contract(provider, ["function name() view returns (string)"])
-    (r,) = c.at(c.address).name()
-    assert r == "hello"
-
-
 def test_read_write_contract():
-    abi, bytecode = load_contract_meta_from_file("./tests/fixtures/counter.json")
+    with open("./tests/fixtures/counter.json") as f:
+        counterabi = f.read()
 
     provider = Revm()
     actors = provider.create_accounts_with_balance(2, 2)
     deployer = actors[0]
     bob = actors[1]
 
-    c = Contract.deploy(provider, deployer, abi, bytecode)
-    assert is_address(c.address)
+    counter = Contract(provider, counterabi)
+    counter.deploy(deployer)
 
     # make 99 calls to the number
     for i in range(1, 100):
-        c.setNumber(i, caller=bob)
+        counter.setNumber(i, caller=bob)
 
-    (b,) = c.number()
+    b = counter.number()
     assert b == 99
 
     with pytest.raises(BaseException):
         # can't call functions that don't exist
-        c.nope()
+        counter.nope()

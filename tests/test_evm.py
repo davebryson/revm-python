@@ -1,7 +1,5 @@
-import pytest
-from eth_utils import is_address, to_wei
-
-from revm_py import load_contract_meta_from_file, Revm, Contract
+from revm_py import Revm
+from eth_utils import to_wei
 
 
 def test_evm_setup_accounts():
@@ -23,15 +21,3 @@ def test_balance_and_transfers():
     provider.transfer(bob, alice, transfer_amt)
     assert provider.balance_of(bob) == to_wei(4, "ether")
     assert provider.balance_of(alice) == to_wei(6, "ether")
-
-    ## Test simple transfer to contract
-    abi, bytecode = load_contract_meta_from_file("./tests/fixtures/simplepayable.json")
-
-    c = Contract.deploy(provider, bob, abi, bytecode, [bob])
-    assert is_address(c.address)
-    assert provider.balance_of(c.address) == 0
-
-    provider.transfer(alice, c.address, transfer_amt)
-
-    assert provider.balance_of(c.address) == transfer_amt
-    assert provider.balance_of(alice) == to_wei(5, "ether")

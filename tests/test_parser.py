@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from revm_py import ContractInfo, load_contract_meta_from_file
+from revm_py import ContractInfo
 
 ABI = [
     {
@@ -32,23 +32,19 @@ def test_fails_parse_on_bad_input():
     with pytest.raises(BaseException):
         ContractInfo.load("")
 
-    info = ContractInfo.parse_abi([])
-    assert len(info.functions) == 0
-
     with pytest.raises(BaseException):
-        ContractInfo.parse_abi("")
-
-
-def test_abi_parse_from_str():
-    raw = json.dumps(ABI)
-    info = ContractInfo.load(raw)
-    assert len(info.functions) == 3
+        # Expects full meta (w/bytecode)
+        raw = json.dumps(ABI)
+        ContractInfo.parse_abi(raw)
 
 
 def test_abi_parser_from_file():
-    abistr, _ = load_contract_meta_from_file("./tests/fixtures/erc20.json")
-    info = ContractInfo.load(abistr)
+    with open("./tests/fixtures/erc20.json") as f:
+        ercabi = f.read()
+    info = ContractInfo.load(ercabi)
     assert len(info.functions) == 14
+
+    # Check the mint function
     result = filter(lambda f: f.name == "mint", info.functions)
     func = list(result)
     assert len(func) == 1
@@ -59,13 +55,4 @@ def test_abi_parser_from_file():
     assert len(cp) == 3
     assert ["string", "string", "uint8"] == cp
 
-
-def test_human_readable_parser():
-    info = ContractInfo.parse_abi(
-        [
-            "function hello(address, uint256) external returns (uint256)",
-            "function another() returns (bool)",
-        ]
-    )
-    assert len(info.functions) == 2
-    assert info.constructor_params == None
+    assert len(info.bytecode) > 0
