@@ -71,13 +71,13 @@ impl BasicClient {
     }
 
     // This is invoked in contract::call:FunctionCall
-    pub fn send_transaction(&self, tx: TxEnv) -> eyre::Result<(Vec<u8>, u64)> {
+    pub fn send_transaction(&self, tx: TxEnv) -> eyre::Result<(Vec<u8>, u64, Vec<Log>)> {
         self.evm.borrow_mut().env.tx = tx;
         match self.evm.borrow_mut().transact_commit() {
             Ok(result) => {
-                let (b, gas, _logs) = process_result_with_value(result)?;
+                let (b, gas, logs) = process_result_with_value(result)?;
                 //let rlogs = into_ether_raw_log(logs);
-                Ok((b, gas))
+                Ok((b, gas, logs))
             }
             _ => eyre::bail!("error with write..."),
         }

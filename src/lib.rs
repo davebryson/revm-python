@@ -75,7 +75,7 @@ impl EVM {
         tx.transact_to = TransactTo::Call(ta.unwrap());
         tx.value = amount;
 
-        let (_, g) = self.0.send_transaction(tx)?;
+        let (_, g, _l) = self.0.send_transaction(tx)?;
         Ok(g)
     }
 
@@ -97,12 +97,10 @@ impl EVM {
         }
 
         // note: ignoring logs for now...add later
-        let (b, g) = self.0.send_transaction(write_tx)?;
-
+        let (b, g, _logs) = self.0.send_transaction(write_tx)?;
         Ok((b, g))
     }
 
-    ///
     fn call(&self, to: &str, data: Vec<u8>) -> PyResult<Vec<u8>> {
         let (ta, _) = address_helper(to, None);
         let mut read_tx = TxEnv::default();

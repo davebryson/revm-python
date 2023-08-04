@@ -28,6 +28,7 @@ pytest = "^7.4.0"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
+sdist-include = ["LICENSE", "README.md"]
 
 [build-system]
 requires = ["maturin>=1.1,<2.0"]

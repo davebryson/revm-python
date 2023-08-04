@@ -11,6 +11,9 @@ build:
 build-prod:
 	poetry run maturin build
 
+test-pub:
+	poetry run maturin publish -r testpypi
+
 #test: build
 #	poetry run pytest -s pytest/*
 

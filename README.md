@@ -53,11 +53,7 @@ Deploy and interact with the classic `counter` smart contract
     result = counter.number()
     assert result == 10
 ```
-See [tests](./tests/) for more examples
-
 ## What's next
-- PyPi
-- Event logs
 - Mesa examples
 - Fork chain support
 

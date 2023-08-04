@@ -91,3 +91,19 @@ def test_read_write_contract():
     with pytest.raises(BaseException):
         # can't call functions that don't exist
         counter.nope()
+
+
+def test_events():
+    with open("./tests/fixtures/erc20.json") as f:
+        ercabi = f.read()
+
+    provider = Revm()
+    [deployer, bob] = provider.create_accounts_with_balance(2, 2)
+
+    erc = Contract(provider, ercabi)
+    erc.deploy(deployer, args=("hello", "H", 6))
+
+    erc.mint(deployer, 3, caller=deployer)
+
+    r = erc.transfer(bob, 1, caller=deployer)
+    assert r

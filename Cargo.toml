@@ -1,10 +1,11 @@
 [package]
 name = "revm-python"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-authors = ["Dave Bryson <davebryson@users.noreply.github.com>"]
+authors = ["Dave Bryson"]
 readme = "README.md"
 license = "Apache-2.0"
+description = "smart-contract api and embedded ethereum virtual machine"
 repository = "https://github.com/davebryson/revmup-python"
 homepage = "https://github.com/davebryson/revmup-python"
 categories = ["cryptography::cryptocurrencies"]
