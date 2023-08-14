@@ -148,6 +148,7 @@ class Contract:
                 fo.is_transact,
                 fo.is_payable,
             )
+            # @todo this will have issues with overloaded functions
             self.__contract_functions[fo.name] = f
 
     def __getattr__(self, n):
