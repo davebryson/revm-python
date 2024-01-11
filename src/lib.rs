@@ -2,7 +2,7 @@ use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError},
     prelude::*,
 };
-use revm::primitives::{TransactTo, TxEnv, B160, U256};
+use revm::primitives::{Address, TransactTo, TxEnv, U256};
 use std::fmt::Debug;
 
 mod abis;
@@ -13,12 +13,12 @@ pub(crate) fn pyerr<T: Debug>(err: T) -> pyo3::PyErr {
     PyRuntimeError::new_err(format!("{:?}", err))
 }
 
-pub(crate) fn addr(addr: &str) -> Result<B160, PyErr> {
-    addr.parse::<B160>()
+pub(crate) fn addr(addr: &str) -> Result<Address, PyErr> {
+    addr.parse::<Address>()
         .map_err(|_| PyTypeError::new_err("failed to parse address from str"))
 }
 
-fn address_helper(caller: &str, receiver: Option<&str>) -> (B160, Option<B160>) {
+fn address_helper(caller: &str, receiver: Option<&str>) -> (Address, Option<Address>) {
     let caller = addr(caller)
         .map_err(pyerr)
         .expect("valid address for caller");

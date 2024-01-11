@@ -1,6 +1,6 @@
 use revm::{
     db::{CacheDB, EmptyDB},
-    primitives::{AccountInfo, ExecutionResult, Log, Output, ResultAndState, TxEnv, B160, U256},
+    primitives::{AccountInfo, Address, ExecutionResult, Log, Output, ResultAndState, TxEnv, U256},
     Database, EVM,
 };
 use std::cell::RefCell;
@@ -14,7 +14,7 @@ pub struct BasicClient {
 impl BasicClient {
     pub fn new() -> Self {
         let mut evm = EVM::new();
-        let db = CacheDB::new(EmptyDB {});
+        let db = CacheDB::new(EmptyDB::default());
         evm.env.block.gas_limit = U256::MAX.into();
         evm.database(db);
         Self {
@@ -22,7 +22,7 @@ impl BasicClient {
         }
     }
 
-    pub fn create_account(&self, address: B160, amount: Option<U256>) -> eyre::Result<()> {
+    pub fn create_account(&self, address: Address, amount: Option<U256>) -> eyre::Result<()> {
         let mut info = AccountInfo::default();
         if amount.is_some() {
             info.balance = amount.unwrap();
@@ -36,14 +36,14 @@ impl BasicClient {
     }
 
     /// Get the account balance of the given account
-    pub fn get_balance(&self, account: B160) -> U256 {
+    pub fn get_balance(&self, account: Address) -> U256 {
         match self.evm.borrow_mut().db().expect("evm db").basic(account) {
             Ok(Some(account)) => account.balance.into(),
             _ => U256::ZERO,
         }
     }
 
-    pub fn deploy(&self, tx: TxEnv) -> eyre::Result<B160> {
+    pub fn deploy(&self, tx: TxEnv) -> eyre::Result<Address> {
         self.evm.borrow_mut().env.tx = tx;
         let (output, _, _) = self
             .evm

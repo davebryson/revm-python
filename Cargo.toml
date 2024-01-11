@@ -18,7 +18,7 @@ crate-type = ["cdylib"]
 [dependencies]
 # abi and evm
 alloy-json-abi = "0.3.1"
-revm = "3.3.0"
+revm = "3.5.0"
 
 # rust -> python
 pyo3 = { version = "0.19.2", features = ["eyre", "extension-module"] }
