@@ -1,0 +1,54 @@
+name: Docker Publish
+
+on:
+  push:
+    branches:
+      - master
+    tags: [ 'v*' ]
+
+jobs:
+  publish-docker:
+    name: Publish Docker Images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            changed:
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'src/**'
+              - 'Dockerfile'
+              - '.github/workflows/docker.yml'
+              - '.dockerignore'
+      - name: Setup QEMU
+        if: ${{ steps.changes.outputs.changed == 'true' || startsWith(github.ref, 'refs/tags/') }}
+        uses: dbhi/qus/action@main
+      - uses: docker/setup-buildx-action@v3
+        if: ${{ steps.changes.outputs.changed == 'true' || startsWith(github.ref, 'refs/tags/') }}
+      #- uses: docker/metadata-action@v5
+      #  if: ${{ steps.changes.outputs.changed == 'true' || startsWith(github.ref, 'refs/tags/') }}
+      #  id: meta
+      #  with:
+      #    images: ghcr.io/pyo3/maturin
+      - name: Login to GitHub Container Registry
+        if: ${{ steps.changes.outputs.changed == 'true' || startsWith(github.ref, 'refs/tags/') }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        if: ${{ steps.changes.outputs.changed == 'true' || startsWith(github.ref, 'refs/tags/') }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          #tags: ${{ steps.meta.outputs.tags }}
+          #labels: ${{ steps.meta.outputs.labels }}
+          # https://github.com/docker/build-push-action/blob/master/docs/advanced/cache.md#registry-cache
+          #cache-from: type=registry,ref=ghcr.io/pyo3/maturin:buildcache
+          #cache-to: type=registry,ref=ghcr.io/pyo3/maturin:buildcache,mode=max

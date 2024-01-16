@@ -5,14 +5,14 @@
 #
 name: CI
 
-on:
-  push:
-    branches:
-      - master
-    tags:
-      - '*'
-  pull_request:
-  workflow_dispatch:
+on: workflow_dispatch
+#  push:
+#    branches:
+#      - master
+#    tags:
+#      - '*'
+#  pull_request:
+#  workflow_dispatch:
 
 
 jobs:
