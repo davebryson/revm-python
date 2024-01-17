@@ -1,4 +1,4 @@
-.PHONY: default install build
+.PHONY: default install build, create-mitre
 
 default: test
 

@@ -27,13 +27,12 @@ RUN set -eux; \
     cargo --version; \
     rustc --version;
 
-WORKDIR /app
-COPY . .
+WORKDIR /opt/revmpy
+COPY . /opt/revmpy
 
-# Setup Exchange sim and build
-RUN pip install poetry
-RUN poetry run pip install --upgrade setuptools
-RUN poetry install
-RUN poetry run maturin develop
+RUN pip3 install --upgrade pip setuptools
+RUN pip3 install maturin eth-abi eth-utils
+RUN pip3 install .
 
-ENTRYPOINT ["/bin/bash"]
+WORKDIR /
+RUN rm -rf /opt/revmpy

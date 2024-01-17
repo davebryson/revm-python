@@ -12,13 +12,20 @@ name = "revm-py"
 version = "0.2.0"
 description = "smart-contract api and embedded ethereum virtual machine"
 authors = ["Dave Bryson"]
+#"maturin = ^1.1.0",
+dependencies = [
+    "eth-abi = ^4.1.0",
+    "eth-utils = ^2.2.0",
+    "eth-hash = { extras = ['pycryptodome'], version = '^0.5.2' }",
+    "pytest = ^7.4.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-maturin = "^1.1.0"
-eth-abi = "^4.1.0"
-eth-utils = "^2.2.0"
-eth-hash = { extras = ["pycryptodome"], version = "^0.5.2" }
+#[tool.poetry.dependencies]
+#python = "^3.11"
+#maturin = "^1.1.0"
+#eth-abi = "^4.1.0"
+#eth-utils = "^2.2.0"
+#eth-hash = { extras = ["pycryptodome"], version = "^0.5.2" }
 
 [tool.poetry.dev-dependencies]
 
