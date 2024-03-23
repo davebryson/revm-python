@@ -1,6 +1,8 @@
 # revmup-python
 A Python smart-contract API and blazingly fast (embedded) Ethereum Virtual Machine (EVM).
 
+**DEPRECATED** see [Simular](https://github.com/simular-fi/simular)
+
 How is this different than Brownie, Ganache, Anvil?
 - It's only an EVM, no blocks or minings
 - No HTTP/JSON-RPC. You talk directly to the EVM (and it's fast)
